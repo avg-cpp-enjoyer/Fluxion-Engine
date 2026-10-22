@@ -28,7 +28,7 @@ public:
 	void Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState);
 	void Clear(ID3D12GraphicsCommandList* cmdList, const float color[4]);
 	ID3D12Resource* Resource() const noexcept;
-	D3D12_CPU_DESCRIPTOR_HANDLE RTV() const noexcept;
+	const D3D12_CPU_DESCRIPTOR_HANDLE& RTV() const noexcept;
 	D3D12_RESOURCE_STATES State() const noexcept;
 private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_resource;

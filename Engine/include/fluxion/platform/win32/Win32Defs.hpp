@@ -18,4 +18,5 @@ using BrushHandle = HBRUSH;
 using MenuHandle = HMENU;
 using WindowClassEx = WNDCLASSEX;
 using CreateStruct = CREATESTRUCT;
+using Point = POINT;
 }

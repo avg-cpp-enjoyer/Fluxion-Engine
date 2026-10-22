@@ -8,7 +8,13 @@ add_library(FluxionEngine STATIC ${ENGINE_SOURCES})
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${ENGINE_SOURCES})
 
-target_include_directories(FluxionEngine PUBLIC
+target_compile_definitions(FluxionEngine PRIVATE 
+    FLUXION_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders/"
+    FLUXION_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/"
+)
+
+target_include_directories(FluxionEngine PUBLIC BEFORE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/directx
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 

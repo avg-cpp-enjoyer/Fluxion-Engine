@@ -3,6 +3,8 @@
 #include <Engine/include/fluxion/core/GraphicsDevice.hpp>
 #include <Engine/include/fluxion/core/DebugLayer.hpp> 
 
+#include <chrono>
+
 namespace fluxion::app {
 App::~App() {
 	fluxion::GraphicsDevice::Shutdown();
@@ -17,18 +19,17 @@ bool App::Initialize(uint32 width, uint32 height) {
 	fluxion::DebugLayer::Enable();
 #endif
 	if (!fluxion::GraphicsDevice::Initialize()) {
-		MessageBoxW(nullptr, L"GraphicsDevice init failed. See debug output.", L"Error", MB_OK | MB_ICONERROR);
+		FLUXION_MESSAGEBOX_ERROR(nullptr, L"GraphicsDevice init failed. See debug output.");
 		return false;
 	}
 
-	if (!m_mainWindow.Create(L"Fluxion Engine", WS_OVERLAPPEDWINDOW, 0, CW_USEDEFAULT, CW_USEDEFAULT, width, height)) {
-		return false;
-	}
-
+	FLUXION_ENSURE_RET(m_mainWindow.Create(L"Fluxion Engine", WS_OVERLAPPEDWINDOW, 0, CW_USEDEFAULT, CW_USEDEFAULT, width, height), false);
 	return true;
 }
 
 int App::Exec(int cmdShow) {
+	auto lastTime = std::chrono::high_resolution_clock::now();
+
 	ShowWindow(m_mainWindow.Window(), cmdShow);
 	UpdateWindow(m_mainWindow.Window());
 
@@ -38,6 +39,12 @@ int App::Exec(int cmdShow) {
 			TranslateMessage(&msg);
 			DispatchMessageW(&msg);
 		} else {
+			auto currentTime = std::chrono::high_resolution_clock::now();
+			float32 dt = std::chrono::duration<float32>(currentTime - lastTime).count();
+			lastTime = currentTime;
+
+			//TODO: Would like to move rendering to a dedicated thread but it's gonna be literal hell implementing it on DX12 so i'll leave it here for now 
+			m_mainWindow.Update(dt);
 			m_mainWindow.Render();
 		}
 	}
@@ -46,6 +53,6 @@ int App::Exec(int cmdShow) {
 		DestroyWindow(m_mainWindow.Window());
 	}
 
-	return static_cast<int>(msg.wParam);
+	return static_cast<int32>(msg.wParam);
 }
 }

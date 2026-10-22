@@ -22,6 +22,8 @@
 #define FLUXION_UNREACHABLE() std::unreachable() // C++23
 #endif
 
+#define FLUXION_ALIGNAS_CONSTANT_BUFFER alignas(256)
+
 #define FLUXION_CHECK(expr) do { \
     HRESULT _hr = (expr); \
     if (FAILED(_hr)) { \
@@ -57,6 +59,19 @@
         } \
     } while (0)
 
+#define FLUXION_INPUT_ELEMENT(StructType, SemanticName, SemanticIndex, Format, MemberName) \
+    { \
+        SemanticName, \
+        SemanticIndex, \
+        Format, \
+        0, \
+        static_cast<UINT>(offsetof(StructType, MemberName)), \
+        D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, \
+        0 \
+    }
+
+#define FLUXION_MESSAGEBOX_ERROR(window, msg) MessageBoxW(window, msg, L"Fluxion Engine Error", MB_OK | MB_ICONERROR);
+
 namespace fluxion {
 using int8     = std::int8_t;
 using int16    = std::int16_t;
@@ -77,4 +92,8 @@ using wchar    = wchar_t;
 static_assert(sizeof(float32) == 4, "float32 must be 32-bit");
 static_assert(sizeof(float64) == 8, "float64 must be 64-bit");
 static_assert(sizeof(wchar) == 2, "Windows wchar must be 16-bit UTF-16");
+
+constexpr uint64 KiB(uint64 x) noexcept { return x << 10; }
+constexpr uint64 MiB(uint64 x) noexcept { return x << 20; }
+constexpr uint64 GiB(uint64 x) noexcept { return x << 30; }
 }

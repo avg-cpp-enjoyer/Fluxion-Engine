@@ -28,10 +28,7 @@ void RenderTarget::Shutdown() {
 void RenderTarget::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState) {
 	FLUXION_ENSURE(cmdList);
 	FLUXION_ENSURE(m_resource);
-
-	if (m_state == newState) {
-		return;
-	}
+	FLUXION_ENSURE(m_state != newState);
 
 	D3D12_RESOURCE_BARRIER barrier{};
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -56,7 +53,7 @@ ID3D12Resource* RenderTarget::Resource() const noexcept {
 	return m_resource.Get();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE RenderTarget::RTV() const noexcept {
+const D3D12_CPU_DESCRIPTOR_HANDLE& RenderTarget::RTV() const noexcept {
 	return m_rtv;
 }
 
