@@ -119,7 +119,6 @@ void MainWindow::OnMouseMove() {
 
 	platform::win32::Point currentPos;
 	GetCursorPos(&currentPos);
-	FLUXION_ENSURE(currentPos.x != center.x || currentPos.y != center.y);
 
 	m_mouseDX = static_cast<float32>(currentPos.x - center.x);
 	m_mouseDY = static_cast<float32>(currentPos.y - center.y);

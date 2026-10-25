@@ -1,10 +1,11 @@
 #include <fluxion/shaders/ShaderProgram.hpp>
 
 namespace fluxion {
-void ShaderProgram::AddShader(const wchar* path, const char* entryPoint, ShaderType type) {
+bool ShaderProgram::AddShader(const std::filesystem::path& filePath) {
 	Shader shader;
-	shader.CompileFromFile(path, entryPoint, type);
+	FLUXION_ENSURE_RET(shader.LoadFromCSO(filePath), false);
 	m_shaders[shader.Name()] = std::move(shader);
+	return true;
 }
 
 Shader* ShaderProgram::GetShaderByName(const std::wstring& name) {

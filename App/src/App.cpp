@@ -15,6 +15,7 @@ App::~App() {
 }
 
 bool App::Initialize(uint32 width, uint32 height) {
+	FLUXION_CHECK(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
 #if defined(_DEBUG)
 	fluxion::DebugLayer::Enable();
 #endif

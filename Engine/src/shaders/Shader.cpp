@@ -1,34 +1,23 @@
 #include <fluxion/shaders/Shader.hpp>
 
-#include <filesystem>
+#include <wrl/client.h>
+#include <vector>
+#include <fstream>
 #include <d3dcompiler.h>
+#include <filesystem>
 
 namespace fluxion {
-void Shader::CompileFromFile(const wchar* fileName, const char* entryPoint, ShaderType type) {
-	auto profileToString = [](ShaderType type) -> const char* {
-		switch (type) {
-		case ShaderType::Vertex: return "vs_5_1";
-		case ShaderType::Pixel: return "ps_5_1";
-		case ShaderType::Compute: return "cs_5_1";
-		default: return "vs_5_1";
-		}
-	};
+bool Shader::LoadFromCSO(const std::filesystem::path& filePath) {
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	FLUXION_ENSURE_RET(file.is_open(), false);
 
-	uint32 flags = D3DCOMPILE_ENABLE_STRICTNESS;
-#if defined(_DEBUG)
-	flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	FLUXION_CHECK(D3DCreateBlob(size, &m_blob));
 
-	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
-	std::filesystem::path path = std::filesystem::path(FLUXION_SHADER_DIR) / fileName;
-	if (SUCCEEDED(D3DCompileFromFile(path.c_str(), nullptr, nullptr, entryPoint, profileToString(type), flags, 0, &m_blob, &errorBlob))) {
-		m_name = fileName;
-		return;
-	}
-
-	if (errorBlob) {
-		OutputDebugStringA(static_cast<const char*>(errorBlob->GetBufferPointer()));
-	}
+	file.read(static_cast<char*>(m_blob->GetBufferPointer()), size);
+	m_name = filePath.stem().wstring();
+	return true;
 }
 
 ID3DBlob* Shader::GetBlob() const {

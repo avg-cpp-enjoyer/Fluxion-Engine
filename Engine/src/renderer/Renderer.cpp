@@ -4,6 +4,7 @@
 #include <fluxion/renderer/PipelineManager.hpp>
 #include <fluxion/mesh/MeshLoader.hpp>
 #include <fluxion/mesh/Mesh.hpp>
+#include <fluxion/core/AssetManager.hpp>
 #include <directx/d3dx12.h>
 
 #include <d3d12.h>
@@ -27,9 +28,7 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 	FLUXION_ENSURE_RET(GraphicsDevice::Device(), false);
 	m_device = GraphicsDevice::Device();
 
-	ShaderProgram::AddShader(L"VertexShader.hlsl", "VSMain", ShaderType::Vertex);
-	ShaderProgram::AddShader(L"MeshOpaqueSolid.hlsl", "PSMain", ShaderType::Pixel);
-
+	FLUXION_ENSURE_RET(LoadShaders(), false);
 	FLUXION_ENSURE_RET(CreateSwapChain(hwnd), false);
 	FLUXION_ENSURE_RET(CreateRTVHeap(), false);
 	FLUXION_ENSURE_RET(CreateRenderTargets(), false);
@@ -38,14 +37,27 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 	FLUXION_ENSURE_RET(CreateDepthBuffer(), false);
 	FLUXION_ENSURE_RET(PipelineManager::Initialize(m_device), false);
 	FLUXION_ENSURE_RET(CreateBuffers(), false);
+	FLUXION_ENSURE_RET(AssetManager::Initialize(m_device, GraphicsDevice::CommandQueue(), m_commandAllocators[0].Get()), false);
 
-	MeshData data;
-	std::filesystem::path modelPath = std::filesystem::path(FLUXION_ASSET_DIR) / "M4A1.obj";
-	if (MeshLoader::LoadFromOBJ(modelPath.string(), data)) {
-		FLUXION_ENSURE_RET(m_mesh.Initialize(m_device, data), false);
-	} else {
-		OutputDebugStringA("[Fluxion] Failed to load model!\n");
-	}
+	std::filesystem::path assetsDir = FLUXION_ASSET_DIR;
+	AssetManager::LoadMeshes(assetsDir / "models");
+	AssetManager::LoadTextures(assetsDir / "textures");
+
+	AssetManager::CreateGridMesh("grid");
+	AssetManager::CreateMaterial("cottage_mat");
+	Material* cottageMat = AssetManager::GetMaterialByName("cottage_mat");
+	AssetManager::AssignTextureToMaterial(*cottageMat, "cottage_diffuse");
+	AssetManager::CreateMaterial("default_mat");
+
+	m_testMesh.mesh = AssetManager::GetMeshByName("cottage");
+	m_testMesh.material = cottageMat;
+	m_testMesh.pipelineMode = PipelineMode::OpaqueSolid;
+	DirectX::XMStoreFloat4x4(&m_testMesh.worldMatrix, DirectX::XMMatrixIdentity());
+
+	m_grid.mesh = AssetManager::GetMeshByName("grid");
+	m_grid.material = AssetManager::GetMaterialByName("default_mat");
+	m_grid.pipelineMode = PipelineMode::Grid;
+	DirectX::XMStoreFloat4x4(&m_grid.worldMatrix, DirectX::XMMatrixIdentity());
 
 	float32 width = static_cast<float32>(m_width);
 	float32 height = static_cast<float32>(m_height);
@@ -110,35 +122,20 @@ void Renderer::RenderFrame() {
 	D3D12_RECT scissorRect{ 0, 0, widthScissor, heightScissor };
 	m_commandList->RSSetViewports(1, &viewport);
 	m_commandList->RSSetScissorRects(1, &scissorRect);
+
+	ID3D12DescriptorHeap* heaps[] = { AssetManager::GetSrvHeap() };
+	m_commandList->SetDescriptorHeaps(1, heaps);
 	m_commandList->SetGraphicsRootSignature(PipelineManager::GetRootSignature());
-	m_commandList->SetPipelineState(PipelineManager::Get(PipelineMode::OpaqueSolid));
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	m_cameraBuffer.GetData().cameraPos = m_camera.GetPositionFloat4();
 	m_transformBuffer.Reset();
+	m_materialBuffer.Reset();
 	m_lightBuffer.Reset();
+	m_cameraBuffer.GetData().cameraPos = m_camera.GetPositionFloat4();
 
-	DirectX::XMMATRIX view = m_camera.GetViewMatrix();
-	DirectX::XMMATRIX proj = m_camera.GetProjectionMatrix();
-	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
+	DrawItem(m_testMesh);
+	DrawItem(m_grid);
 
-	TransformBuffer transform{};
-	DirectX::XMStoreFloat4x4(&transform.world, world);
-	DirectX::XMStoreFloat4x4(&transform.view, view);
-	DirectX::XMStoreFloat4x4(&transform.projection, proj);
-
-	LightBuffer light{};
-	light.lightPos = { 5.0f, 5.0f, -5.0f, 1.0f };
-	light.lightColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-	auto transformAddr = m_transformBuffer.AllocateAndCopy(&transform, sizeof(TransformBuffer));
-	auto lightAddr = m_lightBuffer.AllocateAndCopy(&light, sizeof(LightBuffer));
-
-	m_commandList->SetGraphicsRootConstantBufferView(0, transformAddr); 
-	m_commandList->SetGraphicsRootConstantBufferView(1, lightAddr);     
-	m_commandList->SetGraphicsRootConstantBufferView(2, m_cameraBuffer.GetGPUVirtualAddress());
-
-	m_mesh.Draw(m_commandList.Get());
 	rt.Transition(m_commandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 	m_commandList->Close();
 
@@ -154,6 +151,7 @@ void Renderer::RenderFrame() {
 void Renderer::Shutdown() {
 	FLUXION_ENSURE(m_initialized);
 	WaitForGPU();
+	AssetManager::Shutdown();
 
 	for (auto& rt : m_renderTargets) {
 		rt.Shutdown();
@@ -277,8 +275,8 @@ bool Renderer::CreateDepthBuffer() {
 
 	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
 	FLUXION_CHECK(m_device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &depthDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS(&m_depthBuffer))
-	);
+		D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS(&m_depthBuffer)));
+
 	m_device->CreateDepthStencilView(m_depthBuffer.Get(), nullptr, m_dsv);
 	return true;
 }
@@ -286,7 +284,19 @@ bool Renderer::CreateDepthBuffer() {
 bool Renderer::CreateBuffers() {
 	FLUXION_ENSURE_RET(m_transformBuffer.Initialize(m_device, MiB(4)), false);
 	FLUXION_ENSURE_RET(m_lightBuffer.Initialize(m_device, MiB(4)), false);
+	FLUXION_ENSURE_RET(m_materialBuffer.Initialize(m_device, MiB(4)), false);
 	FLUXION_ENSURE_RET(m_cameraBuffer.Initialize(m_device), false);
+	FLUXION_ENSURE_RET(m_gridParamsBuffer.Initialize(m_device), false);
+	m_gridParamsBuffer.GetData() = GridParams{};
+	return true;
+}
+
+bool Renderer::LoadShaders() {
+	std::filesystem::path shaderDir = std::filesystem::path(FLUXION_ASSET_DIR) / "shaders";
+	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"VertexShader.cso"), false);
+	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"MeshOpaqueSolid.cso"), false);
+	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"GridVS.cso"), false);
+	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"GridPS.cso"), false);
 	return true;
 }
 
@@ -299,5 +309,31 @@ void Renderer::WaitForGPU() {
 		m_fence->SetEventOnCompletion(fenceValue, m_fenceEvent);
 		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
+}
+
+void Renderer::DrawItem(const RenderItem& item) {
+	m_commandList->SetPipelineState(PipelineManager::Get(item.pipelineMode));
+
+	TransformBuffer transform{};
+	DirectX::XMStoreFloat4x4(&transform.world, DirectX::XMLoadFloat4x4(&item.worldMatrix));
+	DirectX::XMStoreFloat4x4(&transform.view, m_camera.GetViewMatrix());
+	DirectX::XMStoreFloat4x4(&transform.projection, m_camera.GetProjectionMatrix());
+	auto transformAddr = m_transformBuffer.AllocateAndCopy(&transform, sizeof(TransformBuffer));
+	m_commandList->SetGraphicsRootConstantBufferView(0, transformAddr);
+
+	MaterialBuffer matData{};
+	matData.textureIndex = item.material->textureIndex;
+	matData.baseColor = item.material->baseColor;
+	auto matAddr = m_materialBuffer.AllocateAndCopy(&matData, sizeof(MaterialBuffer));
+	m_commandList->SetGraphicsRootConstantBufferView(4, matAddr);
+	m_commandList->SetGraphicsRootConstantBufferView(3, m_cameraBuffer.GetGPUVirtualAddress());
+
+	LightBuffer light{};
+	light.lightPos = { 100.0f, 50.0f, -5.0f, 1.0f };
+	light.lightColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	auto lightAddr = m_lightBuffer.AllocateAndCopy(&light, sizeof(LightBuffer));
+	m_commandList->SetGraphicsRootConstantBufferView(1, lightAddr);
+	m_commandList->SetGraphicsRootConstantBufferView(2, m_gridParamsBuffer.GetGPUVirtualAddress());
+	item.mesh->Draw(m_commandList.Get());
 }
 }

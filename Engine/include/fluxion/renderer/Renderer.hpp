@@ -8,6 +8,8 @@
 #include <fluxion/renderer/ConstantBuffer.hpp>
 #include <fluxion/renderer/ConstantBuffers.hpp>
 #include <fluxion/renderer/Camera.hpp>
+#include <fluxion/renderer/Texture.hpp>
+#include <fluxion/renderer/RenderItem.hpp>
 
 #include <wrl/client.h>
 
@@ -40,7 +42,9 @@ private:
 	bool CreateFence();
 	bool CreateDepthBuffer();
 	bool CreateBuffers();
+	bool LoadShaders();
 	void WaitForGPU();
+	void DrawItem(const RenderItem& item);
 private:
 	static constexpr uint32 kFrameCount = 2;
 	uint32 m_width = 0;
@@ -63,8 +67,11 @@ private:
 	bool m_initialized = false;
 	RingBuffer m_transformBuffer;
 	RingBuffer m_lightBuffer;
+	RingBuffer m_materialBuffer;
 	ConstantBuffer<CameraParams> m_cameraBuffer;
-	Mesh m_mesh;
-	Camera m_camera;
+	ConstantBuffer<GridParams> m_gridParamsBuffer;
+	Camera m_camera;                                 
+	RenderItem m_testMesh;
+	RenderItem m_grid;
 };
 }

@@ -28,7 +28,7 @@
     HRESULT _hr = (expr); \
     if (FAILED(_hr)) { \
         char _buf[256]; \
-        sprintf_s(_buf, "Fluxion: " #expr " failed (0x%08X)\n", static_cast<uint32>(_hr)); \
+        sprintf_s(_buf, "[Fluxion] " #expr " failed (0x%08X)\n", static_cast<uint32>(_hr)); \
         OutputDebugStringA(_buf); \
         return false; \
     } \
@@ -71,6 +71,9 @@
     }
 
 #define FLUXION_MESSAGEBOX_ERROR(window, msg) MessageBoxW(window, msg, L"Fluxion Engine Error", MB_OK | MB_ICONERROR);
+
+#define FLUXION_WIDEN_IMPL(x) L ## x
+#define FLUXION_WIDEN(x) FLUXION_WIDEN_IMPL(x)
 
 namespace fluxion {
 using int8     = std::int8_t;

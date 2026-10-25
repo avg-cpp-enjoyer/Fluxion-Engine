@@ -1,20 +1,19 @@
 #pragma once
 
 #include <fluxion/common/Common.hpp>
+
+#include <Windows.h>
+#include <unknwn.h>   
+#include <wrl/client.h> 
+#include <dxcapi.h>
 #include <d3d12.h>
-#include <wrl/client.h>
 #include <string>
+#include <filesystem>
 
 namespace fluxion {
-enum class ShaderType {
-	Vertex,
-	Pixel,
-	Compute
-};
-
 class Shader {
 public:
-	void CompileFromFile(const wchar* path, const char* entryPoint, ShaderType type);
+	bool LoadFromCSO(const std::filesystem::path& filePath);
 	ID3DBlob* GetBlob() const;
 	const std::wstring& Name() const;
 private:

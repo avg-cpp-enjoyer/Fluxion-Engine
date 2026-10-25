@@ -17,9 +17,43 @@ bool GraphicsDevice::Initialize() {
 	FLUXION_ENSURE_RET(InitDXGIFactory(), false);
 	FLUXION_ENSURE_RET(InitD3D12Device(), false);
 	FLUXION_ENSURE_RET(InitCommandQueue(), false);
+	FLUXION_ENSURE_RET(InitFence(), false);
 
 	m_initialized = true;
 	return true;
+}
+
+void GraphicsDevice::Shutdown() {
+	FLUXION_ENSURE(m_initialized);
+
+	m_commandQueue.Reset();
+	m_device.Reset();
+	m_dxgiFactory.Reset();
+	m_initialized = false;
+}
+
+IDXGIFactory6* GraphicsDevice::DXGIFactory() {
+	return m_dxgiFactory.Get();
+}
+
+ID3D12Device* GraphicsDevice::Device() {
+	return m_device.Get();
+}
+
+ID3D12CommandQueue* GraphicsDevice::CommandQueue() {
+	return m_commandQueue.Get();
+}
+
+void GraphicsDevice::WaitForGPU() {
+	FLUXION_ENSURE(m_fence && m_fenceEvent && m_commandQueue);
+
+	const uint64 fenceValueToSignal = ++m_fenceValue;
+	m_commandQueue->Signal(m_fence.Get(), fenceValueToSignal);
+
+	if (m_fence->GetCompletedValue() < fenceValueToSignal) {
+		m_fence->SetEventOnCompletion(fenceValueToSignal, m_fenceEvent);
+		WaitForSingleObject(m_fenceEvent, INFINITE);
+	}
 }
 
 bool GraphicsDevice::InitDXGIFactory() {
@@ -59,26 +93,11 @@ bool GraphicsDevice::InitCommandQueue() {
 	return true;
 }
 
-void GraphicsDevice::Shutdown() {
-	if (!m_initialized) {
-		return;
-	}
+bool GraphicsDevice::InitFence() {
+	FLUXION_CHECK(m_device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
 
-	m_commandQueue.Reset();
-	m_device.Reset();
-	m_dxgiFactory.Reset();
-	m_initialized = false;
-}
-
-IDXGIFactory6* GraphicsDevice::DXGIFactory() { 
-	return m_dxgiFactory.Get(); 
-}
-
-ID3D12Device* GraphicsDevice::Device() { 
-	return m_device.Get(); 
-}
-
-ID3D12CommandQueue* GraphicsDevice::CommandQueue() { 
-	return m_commandQueue.Get(); 
+	m_fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+	FLUXION_ENSURE_RET(m_fenceEvent, false);
+	return true;
 }
 } 
