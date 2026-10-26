@@ -10,7 +10,7 @@ namespace fluxion {
 struct RenderItem {
 	Mesh* mesh = nullptr;
 	Material* material = nullptr;
-	PipelineMode pipelineMode = PipelineMode::OpaqueSolid;
+	PipelineMode pipelineMode = PipelineMode::Geometry;
 	DirectX::XMFLOAT4X4 worldMatrix;
 };
 } 

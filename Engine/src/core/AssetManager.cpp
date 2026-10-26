@@ -89,6 +89,7 @@ bool AssetManager::LoadTextures(const std::filesystem::path& directory) {
 	m_queue->ExecuteCommandLists(1, lists);
 	GraphicsDevice::WaitForGPU();
 	OutputDebugStringA(("[AssetManager] Loaded " + std::to_string(loadedCount) + " textures.\n").c_str());
+	return true;
 }
 
 bool AssetManager::CreateGridMesh(const std::string& name) {
@@ -167,6 +168,23 @@ void AssetManager::AssignTextureToMaterial(Material& material, const std::string
 
 ID3D12DescriptorHeap* AssetManager::GetSrvHeap() {
 	return m_srvHeap.Get();
+}
+
+uint32 AssetManager::RegisterExternalTexture(ID3D12Resource* resource, DXGI_FORMAT format) {
+	FLUXION_ENSURE_RET(m_currentSrvIndex < kMaxTextures, 0);
+	FLUXION_ENSURE_RET(m_srvHeap, 0);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE srvCpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
+	srvCpuHandle.ptr += m_currentSrvIndex * m_srvDescriptorSize;
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	m_device->CreateShaderResourceView(resource, &srvDesc, srvCpuHandle);
+	return m_currentSrvIndex++;
 }
 
 bool AssetManager::LoadMesh(const std::string& name, const std::filesystem::path& directory) {

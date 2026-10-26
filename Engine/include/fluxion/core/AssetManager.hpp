@@ -28,6 +28,7 @@ public:
 	static bool CreateMaterial(const std::string& name);
 	static void AssignTextureToMaterial(Material& material, const std::string& textureName);
 	static ID3D12DescriptorHeap* GetSrvHeap();
+	static uint32 RegisterExternalTexture(ID3D12Resource* resource, DXGI_FORMAT format);
 private:
 	static bool LoadMesh(const std::string& name, const std::filesystem::path& directory);
 	static bool LoadTexture(const std::string& name, const std::filesystem::path& directory, ID3D12GraphicsCommandList* cmdList);

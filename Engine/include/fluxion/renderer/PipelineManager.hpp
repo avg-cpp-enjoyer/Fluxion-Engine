@@ -7,11 +7,12 @@
 
 namespace fluxion {
 enum class PipelineMode {
-	OpaqueSolid,
+	Geometry,     
+	Lighting,      
 	Grid,
 	Wireframe,   // TODO: Implement
 	Transparent, // TODO: Implement
-	DepthOnly,    // TODO: Implement
+	DepthOnly,   // TODO: Implement
 	Count
 };
 
@@ -23,7 +24,8 @@ public:
 	static ID3D12RootSignature* GetRootSignature();
 private:
 	static bool CreateRootSignature(ID3D12Device* device);
-	static bool CreateOpaquePipeline(ID3D12Device* device);
+	static bool CreateGeometryPipeline(ID3D12Device* device);
+	static bool CreateLightingPipeline(ID3D12Device* device);
 	static bool CreateGridPipeline(ID3D12Device* device);
 private:
 	static inline Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;

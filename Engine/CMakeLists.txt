@@ -44,8 +44,10 @@ function(add_shader_compilation TARGET_NAME SHADER_FILE ENTRY_POINT PROFILE)
     set(ALL_CSO_FILES ${ALL_CSO_FILES} "${OUTPUT_CSO}" PARENT_SCOPE)
 endfunction()
 
-add_shader_compilation(FluxionEngine "${SHADERS_DIR}/VertexShader.hlsl" "VSMain" "vs_6_6")
-add_shader_compilation(FluxionEngine "${SHADERS_DIR}/MeshOpaqueSolid.hlsl" "PSMain" "ps_6_6")
+add_shader_compilation(FluxionEngine "${SHADERS_DIR}/GeometryPassVS.hlsl" "VSMain" "vs_6_6")
+add_shader_compilation(FluxionEngine "${SHADERS_DIR}/GeometryPassPS.hlsl" "PSMain" "ps_6_6")
+add_shader_compilation(FluxionEngine "${SHADERS_DIR}/LightingPassVS.hlsl" "VSMain" "vs_6_6")
+add_shader_compilation(FluxionEngine "${SHADERS_DIR}/LightingPassPS.hlsl" "PSMain" "ps_6_6")
 add_shader_compilation(FluxionEngine "${SHADERS_DIR}/GridVS.hlsl" "VSMain" "vs_6_6")
 add_shader_compilation(FluxionEngine "${SHADERS_DIR}/GridPS.hlsl" "PSMain" "ps_6_6")
 

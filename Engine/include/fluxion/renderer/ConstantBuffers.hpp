@@ -41,4 +41,11 @@ struct FLUXION_ALIGNAS_CONSTANT_BUFFER MaterialBuffer {
 	uint32 textureIndex;         
 	uint32 padding[3];           
 };
+
+struct FLUXION_ALIGNAS_CONSTANT_BUFFER LightingParams {
+	uint32 albedoIndex;
+	uint32 normalIndex;
+	uint32 materialIndex;
+	uint32 padding;
+};
 }
