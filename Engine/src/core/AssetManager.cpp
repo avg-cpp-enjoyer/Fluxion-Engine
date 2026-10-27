@@ -3,24 +3,17 @@
 #include <fluxion/core/GraphicsDevice.hpp>
 
 namespace fluxion {
-bool AssetManager::Initialize(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12CommandAllocator* allocator) {
+bool AssetManager::Initialize(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12CommandAllocator* allocator, SRVHeap* srvHeap) {
 	m_device = device;
 	m_queue = queue;
 	m_allocator = allocator;
+	m_srvHeap = srvHeap;
 
 	m_memory = std::make_unique<std::byte[]>(MiB(16));
 	m_arena.emplace(m_memory.get(), MiB(16));
 	m_meshes.emplace(&m_arena.value());
 	m_textures.emplace(&m_arena.value());
 	m_materials.emplace(&m_arena.value());
-
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
-	srvHeapDesc.NumDescriptors = kMaxTextures;
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-	FLUXION_CHECK(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
-	m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	return true;
 }
 
@@ -30,7 +23,6 @@ void AssetManager::Shutdown() {
 	m_materials.reset();
 	m_arena.reset();
 	m_memory.reset();
-	m_srvHeap.Reset();
 }
 
 bool AssetManager::LoadMeshes(const std::filesystem::path& directory) {
@@ -166,27 +158,6 @@ void AssetManager::AssignTextureToMaterial(Material& material, const std::string
 	material.textureIndex = texIt->second.GetIndex();
 }
 
-ID3D12DescriptorHeap* AssetManager::GetSrvHeap() {
-	return m_srvHeap.Get();
-}
-
-uint32 AssetManager::RegisterExternalTexture(ID3D12Resource* resource, DXGI_FORMAT format) {
-	FLUXION_ENSURE_RET(m_currentSrvIndex < kMaxTextures, 0);
-	FLUXION_ENSURE_RET(m_srvHeap, 0);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE srvCpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-	srvCpuHandle.ptr += m_currentSrvIndex * m_srvDescriptorSize;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Format = format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MipLevels = 1;
-
-	m_device->CreateShaderResourceView(resource, &srvDesc, srvCpuHandle);
-	return m_currentSrvIndex++;
-}
-
 bool AssetManager::LoadMesh(const std::string& name, const std::filesystem::path& directory) {
 	MeshData data;
 	FLUXION_ENSURE_RET(MeshLoader::LoadFromOBJ(directory.string(), data), false);
@@ -204,20 +175,18 @@ bool AssetManager::LoadMesh(const std::string& name, const std::filesystem::path
 }
 
 bool AssetManager::LoadTexture(const std::string& name, const std::filesystem::path& directory, ID3D12GraphicsCommandList* cmdList) {
-	FLUXION_ENSURE_RET(m_currentSrvIndex < kMaxTextures, false);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE srvCpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-	srvCpuHandle.ptr += m_currentSrvIndex * m_srvDescriptorSize;
+	FLUXION_ENSURE_RET(m_srvHeap, false);
 
 	auto [it, inserted] = m_textures->try_emplace(name);
 	FLUXION_ENSURE_RET(inserted, false);
 
-	if (!it->second.Initialize(m_device, cmdList, directory, srvCpuHandle, m_currentSrvIndex)) {
+	if (!it->second.Initialize(m_device, cmdList, directory)) {
 		m_textures->erase(it);
 		return false;
 	}
 
-	m_currentSrvIndex++;
-	return true;
+	uint32 slot = m_srvHeap->AllocateSlot();
+	it->second.SetIndex(slot);
+	m_srvHeap->WriteTexture2D(slot, it->second.GetResource(), it->second.GetFormat(), it->second.GetMipLevels());
 }
 }

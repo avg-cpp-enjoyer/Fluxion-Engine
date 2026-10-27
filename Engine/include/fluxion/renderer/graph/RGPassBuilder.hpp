@@ -13,10 +13,16 @@ class RGPassBuilder {
 public:
 	void Read(RGResource* res);
 	void Write(RGResource* res);
+	void ReadDepth(RGResource* res);
+	void WriteDepth(RGResource* res);
 	const std::vector<RGResource*>& GetReads() const;
 	const std::vector<RGResource*>& GetWrites() const;
+	const std::vector<RGResource*>& GetDepthReads() const;
+	const std::vector<RGResource*>& GetDepthWrites() const;
 private:
 	std::vector<RGResource*> m_reads;
 	std::vector<RGResource*> m_writes;
+	std::vector<RGResource*> m_depthReads;
+	std::vector<RGResource*> m_depthWrites;
 };
 }

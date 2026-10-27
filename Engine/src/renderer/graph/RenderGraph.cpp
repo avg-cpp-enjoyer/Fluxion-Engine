@@ -37,6 +37,13 @@ void RenderGraph::InsertBarriers(ID3D12GraphicsCommandList* cmdList, RGPassBuild
 	for (auto* res : builder.GetWrites()) {
 		addTransition(res, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	}
+	for (auto* res : builder.GetDepthReads()) {
+		D3D12_RESOURCE_STATES targetState = D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		addTransition(res, targetState);
+	}
+	for (auto* res : builder.GetDepthWrites()) {
+		addTransition(res, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	}
 
 	if (!m_barrierScratch.empty()) {
 		cmdList->ResourceBarrier(static_cast<uint32>(m_barrierScratch.size()), m_barrierScratch.data());

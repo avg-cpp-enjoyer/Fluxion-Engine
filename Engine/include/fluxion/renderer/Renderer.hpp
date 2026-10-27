@@ -6,6 +6,7 @@
 #include <fluxion/renderer/ConstantBuffer.hpp>
 #include <fluxion/renderer/ConstantBuffers.hpp>
 #include <fluxion/core/RingBuffer.hpp>
+#include <fluxion/core/SRVHeap.hpp>
 #include <fluxion/renderer/RenderItem.hpp>
 #include <fluxion/renderer/GBuffer.hpp>
 #include <fluxion/renderer/graph/RenderGraph.hpp>
@@ -50,6 +51,7 @@ private:
 	uint32 m_width = 0;
 	uint32 m_height = 0;
 	ID3D12Device* m_device;
+	ID3D12CommandQueue* m_queue;
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
@@ -84,5 +86,8 @@ private:
 	std::unique_ptr<GeometryPass> m_geometryPass;
 	std::unique_ptr<LightingPass> m_lightingPass;
 	std::unique_ptr<GridPass> m_gridPass;
+	std::optional<RGResource> m_depthRG;
+	SRVHeap m_srvHeap;
+	uint32 m_depthSRVIndex = UINT32_MAX;
 };
 }

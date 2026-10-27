@@ -1,14 +1,17 @@
 #pragma once
 
 #include <fluxion/common/Common.hpp>
+#include <fluxion/shaders/Shader.hpp>
+
 #include <d3d12.h>
 #include <wrl/client.h>
 #include <array>
 
 namespace fluxion {
 enum class PipelineMode {
-	Geometry,     
-	Lighting,      
+	Geometry,
+	LightingPhong,
+	LightingPBR,      
 	Grid,
 	Wireframe,   // TODO: Implement
 	Transparent, // TODO: Implement
@@ -25,7 +28,9 @@ public:
 private:
 	static bool CreateRootSignature(ID3D12Device* device);
 	static bool CreateGeometryPipeline(ID3D12Device* device);
-	static bool CreateLightingPipeline(ID3D12Device* device);
+	static bool CreateLightingPipeline(Shader* vs, Shader* ps, ID3D12Device* device, PipelineMode mode);
+	static bool CreatePhongLightingPipeline(ID3D12Device* device);
+	static bool CreatePBRLightingPipeline(ID3D12Device* device);
 	static bool CreateGridPipeline(ID3D12Device* device);
 private:
 	static inline Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;

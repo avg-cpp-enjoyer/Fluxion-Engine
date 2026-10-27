@@ -4,8 +4,7 @@
 #include <DirectXTex.h>
 
 namespace fluxion {
-bool Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, 
-	const std::filesystem::path& path, D3D12_CPU_DESCRIPTOR_HANDLE srvHandle, uint32 srvIndex) {
+bool Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const std::filesystem::path& path) {
 	FLUXION_ENSURE_RET(device && cmdList, false);
 
 	DirectX::ScratchImage image;
@@ -14,6 +13,8 @@ bool Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* cmdLis
 	const DirectX::TexMetadata& metadata = image.GetMetadata();
 	m_width = static_cast<uint32>(metadata.width);
 	m_height = static_cast<uint32>(metadata.height);
+	m_format = metadata.format;    
+	m_mipLevels = static_cast<uint32>(metadata.mipLevels); 
 
 	D3D12_RESOURCE_DESC texDesc{};
 	texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -37,7 +38,7 @@ bool Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* cmdLis
 		D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_uploadBuffer)));
 
 	std::vector<D3D12_SUBRESOURCE_DATA> subresources(metadata.mipLevels);
-	for (usize i = 0; i < metadata.mipLevels; ++i) {
+	for (usize i = 0; i < metadata.mipLevels; i++) {
 		const DirectX::Image* img = image.GetImage(0, i, 0);
 		subresources[i].pData = img->pixels;
 		subresources[i].RowPitch = img->rowPitch;
@@ -47,15 +48,6 @@ bool Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* cmdLis
 	UpdateSubresources(cmdList, m_resource.Get(), m_uploadBuffer.Get(), 0, 0, static_cast<uint32>(metadata.mipLevels), subresources.data());
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	cmdList->ResourceBarrier(1, &barrier);
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Format = metadata.format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MipLevels = static_cast<uint32>(metadata.mipLevels);
-	device->CreateShaderResourceView(m_resource.Get(), &srvDesc, srvHandle);
-
-	m_srvIndex = srvIndex;
 	return true;
 }
 
@@ -69,5 +61,21 @@ uint32 Texture::GetHeight() const {
 
 uint32 Texture::GetIndex() const {
 	return m_srvIndex;
+}
+
+void Texture::SetIndex(uint32 index) {
+	m_srvIndex = index;
+}
+
+ID3D12Resource* Texture::GetResource() const {
+	return m_resource.Get();
+}
+
+DXGI_FORMAT Texture::GetFormat() const {
+	return m_format;
+}
+
+uint32 Texture::GetMipLevels() const {
+	return m_mipLevels;
 }
 }

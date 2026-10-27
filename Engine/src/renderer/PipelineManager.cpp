@@ -8,7 +8,8 @@ bool PipelineManager::Initialize(ID3D12Device* device) {
 	FLUXION_ENSURE_RET(device, false);
 	FLUXION_ENSURE_RET(CreateRootSignature(device), false);
 	FLUXION_ENSURE_RET(CreateGeometryPipeline(device), false);
-	FLUXION_ENSURE_RET(CreateLightingPipeline(device), false);
+	FLUXION_ENSURE_RET(CreatePhongLightingPipeline(device), false);
+	FLUXION_ENSURE_RET(CreatePBRLightingPipeline(device), false);
 	FLUXION_ENSURE_RET(CreateGridPipeline(device), false);
 	return true;
 }
@@ -91,8 +92,8 @@ bool PipelineManager::CreateRootSignature(ID3D12Device* device) {
 }
 
 bool PipelineManager::CreateGeometryPipeline(ID3D12Device* device) {
-	auto* vs = ShaderProgram::GetShaderByName(L"GeometryPassVS");
-	auto* ps = ShaderProgram::GetShaderByName(L"GeometryPassPS");
+	Shader* vs = ShaderProgram::GetShaderByName(L"GeometryPassVS");
+	Shader* ps = ShaderProgram::GetShaderByName(L"GeometryPassPS");
 	FLUXION_ENSURE_RET(vs && ps, false);
 
 	D3D12_INPUT_ELEMENT_DESC layout[] = {
@@ -132,11 +133,7 @@ bool PipelineManager::CreateGeometryPipeline(ID3D12Device* device) {
 	return true;
 }
 
-bool PipelineManager::CreateLightingPipeline(ID3D12Device* device) {
-	auto* vs = ShaderProgram::GetShaderByName(L"LightingPassVS");
-	auto* ps = ShaderProgram::GetShaderByName(L"LightingPassPS");
-	FLUXION_ENSURE_RET(vs && ps, false);
-
+bool PipelineManager::CreateLightingPipeline(Shader* vs, Shader* ps, ID3D12Device* device, PipelineMode mode) {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
 	psoDesc.InputLayout = { nullptr, 0 };
 	psoDesc.pRootSignature = m_rootSignature.Get();
@@ -159,13 +156,29 @@ bool PipelineManager::CreateLightingPipeline(ID3D12Device* device) {
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pso;
 	FLUXION_CHECK(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)));
-	m_pipelines[static_cast<usize>(PipelineMode::Lighting)] = pso;
+	m_pipelines[static_cast<usize>(mode)] = pso;
+	return true;
+}
+
+bool PipelineManager::CreatePhongLightingPipeline(ID3D12Device* device) {
+	Shader* vs = ShaderProgram::GetShaderByName(L"LightingPassVS");
+	Shader* ps = ShaderProgram::GetShaderByName(L"LightingPassPhongPS");
+	FLUXION_ENSURE_RET(vs && ps, false);
+	FLUXION_ENSURE_RET(CreateLightingPipeline(vs, ps, device, PipelineMode::LightingPhong), false);
+	return true;
+}
+
+bool PipelineManager::CreatePBRLightingPipeline(ID3D12Device* device) {
+	Shader* vs = ShaderProgram::GetShaderByName(L"LightingPassVS");
+	Shader* ps = ShaderProgram::GetShaderByName(L"LightingPassPBRPS");
+	FLUXION_ENSURE_RET(vs && ps, false);
+	FLUXION_ENSURE_RET(CreateLightingPipeline(vs, ps, device, PipelineMode::LightingPBR), false);
 	return true;
 }
 
 bool PipelineManager::CreateGridPipeline(ID3D12Device* device) {
-	auto* vs = ShaderProgram::GetShaderByName(L"GridVS");
-	auto* ps = ShaderProgram::GetShaderByName(L"GridPS");
+	Shader* vs = ShaderProgram::GetShaderByName(L"GridVS");
+	Shader* ps = ShaderProgram::GetShaderByName(L"GridPS");
 	FLUXION_ENSURE_RET(vs && ps, false);
 
 	D3D12_INPUT_ELEMENT_DESC layout[] = {

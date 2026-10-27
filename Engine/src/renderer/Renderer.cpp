@@ -27,7 +27,9 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 
 	FLUXION_ENSURE_RET(GraphicsDevice::Device(), false);
 	m_device = GraphicsDevice::Device();
+	m_queue = GraphicsDevice::CommandQueue();
 
+	FLUXION_ENSURE_RET(m_srvHeap.Initialize(m_device), false);
 	FLUXION_ENSURE_RET(LoadShaders(), false);
 	FLUXION_ENSURE_RET(CreateSwapChain(hwnd), false);
 	FLUXION_ENSURE_RET(CreateRTVHeap(), false);
@@ -35,20 +37,21 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 	FLUXION_ENSURE_RET(CreateCommandObjects(), false);
 	FLUXION_ENSURE_RET(CreateFence(), false);
 	FLUXION_ENSURE_RET(CreateDepthBuffer(), false);
+	m_depthRG.emplace(m_depthBuffer, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	FLUXION_ENSURE_RET(PipelineManager::Initialize(m_device), false);
+	FLUXION_ENSURE_RET(AssetManager::Initialize(m_device, m_queue, m_commandAllocators[0].Get(), &m_srvHeap), false);
 	FLUXION_ENSURE_RET(CreateBuffers(), false);
-	FLUXION_ENSURE_RET(AssetManager::Initialize(m_device, GraphicsDevice::CommandQueue(), m_commandAllocators[0].Get()), false);
-	FLUXION_ENSURE_RET(m_gbuffer.Initialize(m_device, m_width, m_height), false);
+	FLUXION_ENSURE_RET(m_gbuffer.Initialize(m_device, &m_srvHeap, m_width, m_height), false);
 
 	std::filesystem::path assetsDir = FLUXION_ASSET_DIR;
 	AssetManager::LoadMeshes(assetsDir / "models");
 	AssetManager::LoadTextures(assetsDir / "textures");
 	AssetManager::CreateGridMesh("grid");
 
+	AssetManager::CreateMaterial("default_mat");
 	AssetManager::CreateMaterial("cottage_mat");
 	Material* cottageMat = AssetManager::GetMaterialByName("cottage_mat");
-	AssetManager::AssignTextureToMaterial(*cottageMat, "cottage_diffuse");
-	AssetManager::CreateMaterial("default_mat");
+	AssetManager::AssignTextureToMaterial(*cottageMat, "Cottage_Clean_Base_Color");
 
 	RenderItem cottage;
 	cottage.mesh = AssetManager::GetMeshByName("cottage");
@@ -71,6 +74,9 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 	m_renderContext.gridParamsBuffer = &m_gridParamsBuffer;
 	m_renderContext.lightBuffer = &m_lightBuffer;
 	m_renderContext.gridItem = &m_grid;
+	m_renderContext.depthRG = &m_depthRG.value();
+	m_renderContext.width = m_width; 
+	m_renderContext.height = m_height;
 
 	m_geometryPass = std::make_unique<GeometryPass>(&m_gbuffer, &m_renderContext, m_dsv);
 	m_lightingPass = std::make_unique<LightingPass>(&m_gbuffer, &m_renderContext);
@@ -91,13 +97,14 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 void Renderer::Resize(uint32 width, uint32 height) {
 	FLUXION_ENSURE(m_initialized);
 	FLUXION_ENSURE(width > 0 && height > 0);
+	FLUXION_ENSURE(width != m_width && height != m_height);
 
-	if (width == m_width && height == m_height) {
-		return;
-	}
+	float32 newWidth = static_cast<float32>(width);
+	float32 newHeight = static_cast<float32>(height);
+	m_camera.SetAspectRatio(newWidth / newHeight);
 
-	m_camera.SetAspectRatio(static_cast<float32>(width) / static_cast<float32>(height));
 	WaitForGPU();
+	m_swapChainRG.reset();
 
 	for (auto& rt : m_renderTargets) {
 		rt.Shutdown();
@@ -110,10 +117,18 @@ void Renderer::Resize(uint32 width, uint32 height) {
 
 	m_width = width;
 	m_height = height;
+	m_renderContext.width = m_width; 
+	m_renderContext.height = m_height;
 
 	FLUXION_ENSURE(CreateRenderTargets());
 	FLUXION_ENSURE(CreateDepthBuffer());
-	FLUXION_ENSURE(m_gbuffer.Initialize(m_device, m_width, m_height));
+
+	m_depthRG.reset();
+	m_depthRG.emplace(m_depthBuffer, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	m_renderContext.depthRG = &m_depthRG.value();
+
+	FLUXION_ENSURE(m_gbuffer.Initialize(m_device, &m_srvHeap, m_width, m_height));
+	m_lightingPass->SetDepthIndex(m_depthSRVIndex);
 
 	for (auto& fv : m_fenceValues) {
 		fv = m_currentFenceValue;
@@ -132,7 +147,7 @@ void Renderer::RenderFrame() {
 	m_commandAllocators[frameIndex]->Reset();
 	m_commandList->Reset(m_commandAllocators[frameIndex].Get(), nullptr);
 
-	ID3D12DescriptorHeap* heaps[] = { AssetManager::GetSrvHeap() };
+	ID3D12DescriptorHeap* heaps[] = { m_srvHeap.GetHeap() };
 	m_commandList->SetDescriptorHeaps(1, heaps);
 	m_commandList->SetGraphicsRootSignature(PipelineManager::GetRootSignature());
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -150,13 +165,17 @@ void Renderer::RenderFrame() {
 	m_transformBuffer.Reset();
 	m_materialBuffer.Reset();
 	m_lightBuffer.Reset();
-	m_cameraBuffer.GetData().cameraPos = m_camera.GetPositionFloat4();
+
+	auto& camData = m_cameraBuffer.GetData();
+	camData.cameraPos = m_camera.GetPositionFloat4();
+	DirectX::XMStoreFloat4x4(&camData.invViewProj, m_camera.GetInvViewProjMatrix());
 
 	RenderTarget& rt = m_renderTargets[frameIndex];
 	m_swapChainRG.reset();
 	m_swapChainRG.emplace(rt.Resource(), D3D12_RESOURCE_STATE_PRESENT);
 
 	m_lightingPass->SetOutput(&m_swapChainRG.value(), rt.RTV());
+	m_lightingPass->SetDepthIndex(m_depthSRVIndex);
 	m_gridPass->SetOutput(&m_swapChainRG.value(), rt.RTV());
 
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -171,11 +190,11 @@ void Renderer::RenderFrame() {
 	m_commandList->Close();
 
 	ID3D12CommandList* lists[] = { m_commandList.Get() };
-	GraphicsDevice::CommandQueue()->ExecuteCommandLists(1, lists);
+	m_queue->ExecuteCommandLists(1, lists);
 	m_swapChain->Present(1, 0);
 
 	const uint64 fenceValue = ++m_currentFenceValue;
-	GraphicsDevice::CommandQueue()->Signal(m_fence.Get(), fenceValue);
+	m_queue->Signal(m_fence.Get(), fenceValue);
 	m_fenceValues[frameIndex] = fenceValue;
 }
 
@@ -228,7 +247,7 @@ bool Renderer::CreateSwapChain(platform::win32::WindowHandle hwnd) {
 	desc.Flags = 0;
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain1;
-	FLUXION_CHECK(factory->CreateSwapChainForHwnd(GraphicsDevice::CommandQueue(), hwnd, &desc, nullptr, nullptr, &swapChain1));
+	FLUXION_CHECK(factory->CreateSwapChainForHwnd(m_queue, hwnd, &desc, nullptr, nullptr, &swapChain1));
 	factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
 	FLUXION_CHECK(swapChain1.As(&m_swapChain));
 	return true;
@@ -269,7 +288,7 @@ bool Renderer::CreateCommandObjects() {
 }
 
 bool Renderer::CreateFence() {
-	FLUXION_CHECK(GraphicsDevice::Device()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+	FLUXION_CHECK(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
 	m_fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 	FLUXION_ENSURE_RET(m_fenceEvent, false);
 	return true;
@@ -306,6 +325,11 @@ bool Renderer::CreateDepthBuffer() {
 		D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS(&m_depthBuffer)));
 
 	m_device->CreateDepthStencilView(m_depthBuffer.Get(), nullptr, m_dsv);
+	if (m_depthSRVIndex == UINT32_MAX) {
+		m_depthSRVIndex = m_srvHeap.AllocateSlot();
+	}
+
+	m_srvHeap.WriteTexture2D(m_depthSRVIndex, m_depthBuffer.Get(), DXGI_FORMAT_R32_FLOAT);
 	return true;
 }
 
@@ -324,7 +348,8 @@ bool Renderer::LoadShaders() {
 	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"GeometryPassVS.cso"), false);
 	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"GeometryPassPS.cso"), false);
 	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"LightingPassVS.cso"), false);
-	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"LightingPassPS.cso"), false);
+	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"LightingPassPhongPS.cso"), false);
+	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"LightingPassPBRPS.cso"), false);
 	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"GridVS.cso"), false);
 	FLUXION_ENSURE_RET(ShaderProgram::AddShader(shaderDir / L"GridPS.cso"), false);
 	return true;
@@ -333,7 +358,7 @@ bool Renderer::LoadShaders() {
 void Renderer::WaitForGPU() {
 	FLUXION_ENSURE(m_fence && m_fenceEvent);
 	const uint64 fenceValue = ++m_currentFenceValue;
-	GraphicsDevice::CommandQueue()->Signal(m_fence.Get(), fenceValue);
+	m_queue->Signal(m_fence.Get(), fenceValue);
 
 	if (m_fence->GetCompletedValue() < fenceValue) {
 		m_fence->SetEventOnCompletion(fenceValue, m_fenceEvent);

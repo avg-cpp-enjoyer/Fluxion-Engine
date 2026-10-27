@@ -21,5 +21,8 @@ struct RenderContext {
 	RingBuffer* lightBuffer = nullptr;
 	ConstantBuffer<GridParams>* gridParamsBuffer = nullptr;
 	RenderItem* gridItem = nullptr;
+	RGResource* depthRG = nullptr;
+	uint32 width = 0;
+	uint32 height = 0;
 };
 }

@@ -9,6 +9,7 @@ void GeometryPass::Setup(RGPassBuilder& builder) {
 	builder.Write(m_gbuffer->GetAlbedoRG());
 	builder.Write(m_gbuffer->GetNormalRG());
 	builder.Write(m_gbuffer->GetMaterialRG());
+	builder.WriteDepth(m_ctx->depthRG);
 }
 
 void GeometryPass::Execute(ID3D12GraphicsCommandList* cmdList) {

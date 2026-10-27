@@ -49,7 +49,16 @@ DirectX::XMMATRIX Camera::GetViewMatrix() const {
 }
 
 DirectX::XMMATRIX Camera::GetProjectionMatrix() const {
-	return DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(m_fov), m_aspectRatio, m_nearPlane, m_farPlane);
+	float32 fov = DirectX::XMConvertToRadians(m_fov);
+	return DirectX::XMMatrixPerspectiveFovLH(fov, m_aspectRatio, m_nearPlane, m_farPlane);
+}
+
+DirectX::XMMATRIX Camera::GetInvViewProjMatrix() const {
+	DirectX::XMVECTOR det;
+	DirectX::XMMATRIX view = GetViewMatrix();
+	DirectX::XMMATRIX proj = GetProjectionMatrix();
+	DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, proj);
+	return DirectX::XMMatrixInverse(&det, viewProj);
 }
 
 DirectX::XMFLOAT3 Camera::GetPosition() const {

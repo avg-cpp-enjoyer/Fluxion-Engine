@@ -15,6 +15,7 @@ public:
 	void SetAspectRatio(float32 aspect);
 	DirectX::XMMATRIX GetViewMatrix() const;
 	DirectX::XMMATRIX GetProjectionMatrix() const;
+	DirectX::XMMATRIX GetInvViewProjMatrix() const;
 	DirectX::XMFLOAT3 GetPosition() const;
 	DirectX::XMFLOAT4 GetPositionFloat4() const;
 private:
