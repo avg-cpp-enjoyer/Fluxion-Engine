@@ -39,8 +39,9 @@ struct FLUXION_ALIGNAS_CONSTANT_BUFFER GridParams {
 
 struct FLUXION_ALIGNAS_CONSTANT_BUFFER MaterialBuffer {
 	DirectX::XMFLOAT4 baseColor; 
-	uint32 textureIndex;         
-	uint32 padding[3];           
+	uint32 textureIndex;
+	uint32 normalIndex;
+	uint32 padding[2];           
 };
 
 struct FLUXION_ALIGNAS_CONSTANT_BUFFER LightingParams {

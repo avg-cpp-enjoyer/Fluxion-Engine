@@ -57,6 +57,7 @@ bool MeshLoader::LoadFromOBJ(const std::string& path, MeshData& outData) {
 		}
 	}
 
+	CalculateTangents(outData);
 	OutputDebugStringA(("[Fluxion] Loaded " + std::to_string(outData.vertices.size()) + " vertices.\n").c_str());
 	return true;
 }
@@ -152,5 +153,87 @@ void MeshLoader::HandleOBJVN(Normals& normals, std::istringstream& iss) {
 	DirectX::XMFLOAT3 norm{};
 	iss >> norm.x >> norm.y >> norm.z;
 	normals.push_back(norm);
+}
+
+void MeshLoader::CalculateTangents(MeshData& outData) {
+	std::vector<DirectX::XMFLOAT3> tan1(outData.vertices.size(), { 0.0f, 0.0f, 0.0f });
+	std::vector<DirectX::XMFLOAT3> tan2(outData.vertices.size(), { 0.0f, 0.0f, 0.0f });
+
+	for (usize i = 0; i < outData.indices.size(); i += 3) {
+		uint32 i0 = outData.indices[i];
+		uint32 i1 = outData.indices[i + 1];
+		uint32 i2 = outData.indices[i + 2];
+
+		const auto& v0 = outData.vertices[i0];
+		const auto& v1 = outData.vertices[i1];
+		const auto& v2 = outData.vertices[i2];
+
+		DirectX::XMVECTOR p0 = v0.PositionVec();
+		DirectX::XMVECTOR p1 = v1.PositionVec();
+		DirectX::XMVECTOR p2 = v2.PositionVec();
+
+		DirectX::XMVECTOR uv0 = v0.UVVec();
+		DirectX::XMVECTOR uv1 = v1.UVVec();
+		DirectX::XMVECTOR uv2 = v2.UVVec();
+
+		DirectX::XMVECTOR e1 = DirectX::XMVectorSubtract(p1, p0);
+		DirectX::XMVECTOR e2 = DirectX::XMVectorSubtract(p2, p0);
+
+		float32 duv1x = DirectX::XMVectorGetX(uv1) - DirectX::XMVectorGetX(uv0);
+		float32 duv1y = DirectX::XMVectorGetY(uv1) - DirectX::XMVectorGetY(uv0);
+		float32 duv2x = DirectX::XMVectorGetX(uv2) - DirectX::XMVectorGetX(uv0);
+		float32 duv2y = DirectX::XMVectorGetY(uv2) - DirectX::XMVectorGetY(uv0);
+		float32 det = duv1x * duv2y - duv2x * duv1y;
+		
+		if (std::abs(det) < 1e-6f) continue;
+		float32 scaleFactor = 1.0f / det;
+
+		DirectX::XMVECTOR e1_scaled_duv2y = DirectX::XMVectorScale(e1, duv2y);
+		DirectX::XMVECTOR e2_scaled_duv1y = DirectX::XMVectorScale(e2, duv1y);
+		DirectX::XMVECTOR e2_scaled_duv1x = DirectX::XMVectorScale(e2, duv1x);
+		DirectX::XMVECTOR e1_scaled_duv2x = DirectX::XMVectorScale(e1, duv2x);
+
+		DirectX::XMVECTOR tangentSum = DirectX::XMVectorSubtract(e1_scaled_duv2y, e2_scaled_duv1y);
+		DirectX::XMVECTOR bitangentSum = DirectX::XMVectorSubtract(e2_scaled_duv1x, e1_scaled_duv2x);
+
+		DirectX::XMVECTOR tangent = DirectX::XMVectorScale(tangentSum, scaleFactor);
+		DirectX::XMVECTOR bitangent = DirectX::XMVectorScale(bitangentSum, scaleFactor);
+
+		DirectX::XMFLOAT3 t3, b3;
+		DirectX::XMStoreFloat3(&t3, tangent);
+		DirectX::XMStoreFloat3(&b3, bitangent);
+
+		auto Add = [](DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b) -> void {
+			a.x += b.x; a.y += b.y; a.z += b.z;
+		};
+
+		Add(tan1[i0], t3); Add(tan1[i1], t3); Add(tan1[i2], t3);
+		Add(tan2[i0], b3); Add(tan2[i1], b3); Add(tan2[i2], b3);
+	}
+
+	for (size_t i = 0; i < outData.vertices.size(); i++) {
+		auto& v = outData.vertices[i];
+
+		DirectX::XMVECTOR n = v.NormalVec();
+		DirectX::XMVECTOR t = DirectX::XMLoadFloat3(&tan1[i]);
+
+		if (DirectX::XMVectorGetX(DirectX::XMVector3LengthSq(t)) < 1e-6f) {
+			float32 nYAbs = std::abs(DirectX::XMVectorGetY(n));
+			DirectX::XMVECTOR upY = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+			DirectX::XMVECTOR upX = DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+			DirectX::XMVECTOR up = (nYAbs < 0.99f) ? upY : upX;
+			t = DirectX::XMVector3Cross(up, n);
+		}
+
+		float dotNT = DirectX::XMVectorGetX(DirectX::XMVector3Dot(n, t));
+		t = DirectX::XMVectorSubtract(t, DirectX::XMVectorScale(n, dotNT));
+		t = DirectX::XMVector3Normalize(t);
+
+		DirectX::XMVECTOR bCalc = DirectX::XMVector3Cross(n, t);
+		DirectX::XMVECTOR bAccum = DirectX::XMLoadFloat3(&tan2[i]);
+
+		float32 sign = (DirectX::XMVectorGetX(DirectX::XMVector3Dot(bCalc, bAccum)) < 0.0f) ? -1.0f : 1.0f;
+		v.SetTangent(DirectX::XMVectorSetW(t, sign));
+	}
 }
 }

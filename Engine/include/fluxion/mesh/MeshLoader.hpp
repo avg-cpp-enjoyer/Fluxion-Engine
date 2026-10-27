@@ -50,5 +50,6 @@ private:
 	static void HandleOBJV(Positions& positions, std::istringstream& iss);
 	static void HandleOBJVT(UVs& uvs, std::istringstream& iss);
 	static void HandleOBJVN(Normals& normals, std::istringstream& iss);
+	static void CalculateTangents(MeshData& outData);
 };
 }

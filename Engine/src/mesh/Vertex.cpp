@@ -51,6 +51,10 @@ DirectX::XMVECTOR Vertex::ColorVec() const noexcept {
 	return XMLoadFloat4(&color);
 }
 
+DirectX::XMVECTOR Vertex::TangentVec() const noexcept {
+	return XMLoadFloat4(&tangent);
+}
+
 void Vertex::SetPosition(DirectX::XMVECTOR vec) noexcept {
 	XMStoreFloat3(&pos, vec);
 }
@@ -65,5 +69,9 @@ void Vertex::SetUV(DirectX::XMVECTOR vec) noexcept {
 
 void Vertex::SetColor(DirectX::XMVECTOR vec) noexcept {
 	XMStoreFloat4(&color, vec);
+}
+
+void Vertex::SetTangent(DirectX::XMVECTOR vec) noexcept {
+	XMStoreFloat4(&tangent, vec);
 }
 }

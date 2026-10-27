@@ -43,6 +43,7 @@ void GeometryPass::Execute(ID3D12GraphicsCommandList* cmdList) {
 		MaterialBuffer matData{};
 		matData.textureIndex = item.material->textureIndex;
 		matData.baseColor = item.material->baseColor;
+		matData.normalIndex = item.material->normalIndex;
 
 		auto matAddr = m_ctx->materialBuffer->AllocateAndCopy(&matData, sizeof(MaterialBuffer));
 		cmdList->SetGraphicsRootConstantBufferView(4, matAddr);

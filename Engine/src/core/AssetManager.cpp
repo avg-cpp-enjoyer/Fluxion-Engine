@@ -81,6 +81,11 @@ bool AssetManager::LoadTextures(const std::filesystem::path& directory) {
 	m_queue->ExecuteCommandLists(1, lists);
 	GraphicsDevice::WaitForGPU();
 	OutputDebugStringA(("[AssetManager] Loaded " + std::to_string(loadedCount) + " textures.\n").c_str());
+
+	for (const auto& [name, tex] : *m_textures) {
+		OutputDebugStringA(("[AssetManager] Loaded: " + name + " (Index: " + std::to_string(tex.GetIndex()) + ")\n").c_str());
+	}
+
 	return true;
 }
 
@@ -123,6 +128,12 @@ Mesh* AssetManager::GetMeshByName(const std::string& name) {
 	return it != m_meshes->end() ? &it->second : nullptr;
 }
 
+Texture* AssetManager::GetTextureByName(const std::string& name) {
+	FLUXION_ENSURE_RET(m_textures.has_value(), nullptr);
+	auto it = m_textures->find(name);
+	return it != m_textures->end() ? &it->second : nullptr;
+}
+
 uint32 AssetManager::GetTextureIndexByTextureName(const std::string& name) {
 	FLUXION_ENSURE_RET(m_textures.has_value(), 0);
 	auto it = m_textures->find(name);
@@ -141,21 +152,10 @@ bool AssetManager::CreateMaterial(const std::string& name) {
 	Material mat;
 	mat.baseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 	mat.textureIndex = 0;
+	mat.normalIndex = 0;
 
 	(*m_materials)[name] = mat;
 	return true;
-}
-
-void AssetManager::AssignTextureToMaterial(Material& material, const std::string& textureName) {
-	FLUXION_ENSURE(m_textures.has_value());
-
-	auto texIt = m_textures->find(textureName);
-	if (texIt == m_textures->end()) {
-		OutputDebugStringA(("[AssetManager] Texture not found: " + textureName + "\n").c_str());
-		return;
-	}
-
-	material.textureIndex = texIt->second.GetIndex();
 }
 
 bool AssetManager::LoadMesh(const std::string& name, const std::filesystem::path& directory) {
@@ -188,5 +188,6 @@ bool AssetManager::LoadTexture(const std::string& name, const std::filesystem::p
 	uint32 slot = m_srvHeap->AllocateSlot();
 	it->second.SetIndex(slot);
 	m_srvHeap->WriteTexture2D(slot, it->second.GetResource(), it->second.GetFormat(), it->second.GetMipLevels());
+	return true;
 }
 }

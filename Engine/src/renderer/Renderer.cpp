@@ -48,10 +48,15 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 	AssetManager::LoadTextures(assetsDir / "textures");
 	AssetManager::CreateGridMesh("grid");
 
+	if (Texture* albedo = AssetManager::GetTextureByName("Cottage_Clean_Base_Color")) {
+		albedo->SetSRGB(true, &m_srvHeap);
+	}
+
 	AssetManager::CreateMaterial("default_mat");
 	AssetManager::CreateMaterial("cottage_mat");
 	Material* cottageMat = AssetManager::GetMaterialByName("cottage_mat");
-	AssetManager::AssignTextureToMaterial(*cottageMat, "Cottage_Clean_Base_Color");
+	cottageMat->textureIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Base_Color");
+	cottageMat->normalIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Normal");
 
 	RenderItem cottage;
 	cottage.mesh = AssetManager::GetMeshByName("cottage");

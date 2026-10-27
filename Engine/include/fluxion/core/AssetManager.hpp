@@ -24,10 +24,10 @@ public:
 	static bool LoadTextures(const std::filesystem::path& directory);
 	static bool CreateGridMesh(const std::string& name);
 	static Mesh* GetMeshByName(const std::string& name);
+	static Texture* GetTextureByName(const std::string& name);
 	static uint32 GetTextureIndexByTextureName(const std::string& name); 
 	static Material* GetMaterialByName(const std::string& name); 
 	static bool CreateMaterial(const std::string& name);
-	static void AssignTextureToMaterial(Material& material, const std::string& textureName);
 private:
 	static bool LoadMesh(const std::string& name, const std::filesystem::path& directory);
 	static bool LoadTexture(const std::string& name, const std::filesystem::path& directory, ID3D12GraphicsCommandList* cmdList);

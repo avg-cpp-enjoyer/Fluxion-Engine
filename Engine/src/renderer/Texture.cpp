@@ -51,6 +51,28 @@ bool Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* cmdLis
 	return true;
 }
 
+void Texture::SetSRGB(bool srgb, SRVHeap* srvHeap) {
+	if (m_isSRGB == srgb) {
+		return;
+	}
+
+	m_isSRGB = srgb;
+	DXGI_FORMAT srvFormat = m_format;
+
+	if (srgb) {
+		switch (m_format) {
+		case DXGI_FORMAT_R8G8B8A8_UNORM:
+			srvFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+			break;
+		case DXGI_FORMAT_B8G8R8A8_UNORM:
+			srvFormat = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+			break;
+		}
+	}
+
+	srvHeap->WriteTexture2D(m_srvIndex, m_resource.Get(), srvFormat, m_mipLevels);
+}
+
 uint32 Texture::GetWidth() const {
 	return m_width;
 }

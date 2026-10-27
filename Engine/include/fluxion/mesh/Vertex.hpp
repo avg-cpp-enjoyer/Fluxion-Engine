@@ -21,15 +21,18 @@ struct Vertex {
 	DirectX::XMVECTOR NormalVec() const noexcept;
 	DirectX::XMVECTOR UVVec() const noexcept;
 	DirectX::XMVECTOR ColorVec() const noexcept;
+	DirectX::XMVECTOR TangentVec() const noexcept;
 	void SetPosition(DirectX::XMVECTOR vec) noexcept;
 	void SetNormal(DirectX::XMVECTOR vec) noexcept;
 	void SetUV(DirectX::XMVECTOR vec) noexcept;
 	void SetColor(DirectX::XMVECTOR vec) noexcept;
+	void SetTangent(DirectX::XMVECTOR vec) noexcept;
 
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 normal;
 	DirectX::XMFLOAT2 uv;
 	DirectX::XMFLOAT4 color;
+	DirectX::XMFLOAT4 tangent;
 };
 
 struct MeshData {
