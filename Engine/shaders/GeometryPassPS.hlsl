@@ -4,7 +4,10 @@ cbuffer MaterialBuffer : register(b4) {
     float4 baseColor;
     uint textureIndex;
     uint normalTextureIndex;
-    uint2 padding;
+    uint roughnessTextureIndex;
+    uint metallicTextureIndex;
+    uint aoTextureIndex;
+    uint3 padding;
 };
 
 SamplerState linearSampler : register(s0);
@@ -33,19 +36,23 @@ PSOutput PSMain(PSInput input) {
 
     Texture2D normalTex = ResourceDescriptorHeap[normalTextureIndex];
     float3 tangentNormal = normalTex.Sample(linearSampler, input.uv).rgb * 2.0f - 1.0f;
-    
-    float3x3 TBN = float3x3(
-        normalize(input.tangent),
-        normalize(input.bitangent),
-        normalize(input.normal)
-    );
-    
+    float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
     float3 worldNormal = normalize(mul(tangentNormal, TBN));
+    
     if (dot(worldNormal, worldNormal) < 0.01f) {
         worldNormal = normalize(input.normal);
     }
-    
+        
     output.normal = float4(worldNormal, 1.0f);
-    output.material = float4(0.0f, 0.4f, 0.0f, 1.0f); //hardcoded for now
+
+    Texture2D roughTex = ResourceDescriptorHeap[roughnessTextureIndex];
+    Texture2D metalTex = ResourceDescriptorHeap[metallicTextureIndex];
+    Texture2D aoTex = ResourceDescriptorHeap[aoTextureIndex];
+
+    float roughness = roughTex.Sample(linearSampler, input.uv).r;
+    float metallic = metalTex.Sample(linearSampler, input.uv).r;
+    float ao = aoTex.Sample(linearSampler, input.uv).r;
+
+    output.material = float4(metallic, roughness, 0.0f, ao);
     return output;
 }

@@ -92,6 +92,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
 
     float metallic = material.r;
     float roughness = material.g;
+    float ao = material.a;
     float3 F0 = lerp(float3(DIELECTRIC_F0, DIELECTRIC_F0, DIELECTRIC_F0), albedo.rgb, metallic);
 
     float NDF = DistributionGGX(N, H, roughness);
@@ -106,7 +107,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
     float3 kD = (1.0f - kS) * (1.0f - metallic);
     float NdotL = saturate(dot(N, L));
 
-    float3 ambient = AMBIENT_INTENSITY * albedo.rgb;
+    float3 ambient = ao * AMBIENT_INTENSITY * albedo.rgb;
     float3 radiance = lightColor.rgb;
     float3 Lo = (kD * albedo.rgb / PI + specular) * radiance * NdotL;
 

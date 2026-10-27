@@ -15,7 +15,7 @@ public:
 	constexpr const char* GetName() const override;
 private:
 	RenderContext* m_ctx;
-	RGResource* m_outputRG;
+	RGResource* m_outputRG = nullptr;
 	D3D12_CPU_DESCRIPTOR_HANDLE m_outputRTV{};
 	D3D12_CPU_DESCRIPTOR_HANDLE m_depthDsv;
 };

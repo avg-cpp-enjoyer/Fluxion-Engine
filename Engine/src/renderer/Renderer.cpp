@@ -43,32 +43,7 @@ bool Renderer::Initialize(platform::win32::WindowHandle hwnd) {
 	FLUXION_ENSURE_RET(CreateBuffers(), false);
 	FLUXION_ENSURE_RET(m_gbuffer.Initialize(m_device, &m_srvHeap, m_width, m_height), false);
 
-	std::filesystem::path assetsDir = FLUXION_ASSET_DIR;
-	AssetManager::LoadMeshes(assetsDir / "models");
-	AssetManager::LoadTextures(assetsDir / "textures");
-	AssetManager::CreateGridMesh("grid");
-
-	if (Texture* albedo = AssetManager::GetTextureByName("Cottage_Clean_Base_Color")) {
-		albedo->SetSRGB(true, &m_srvHeap);
-	}
-
-	AssetManager::CreateMaterial("default_mat");
-	AssetManager::CreateMaterial("cottage_mat");
-	Material* cottageMat = AssetManager::GetMaterialByName("cottage_mat");
-	cottageMat->textureIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Base_Color");
-	cottageMat->normalIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Normal");
-
-	RenderItem cottage;
-	cottage.mesh = AssetManager::GetMeshByName("cottage");
-	cottage.material = cottageMat;
-	cottage.pipelineMode = PipelineMode::Geometry;
-	DirectX::XMStoreFloat4x4(&cottage.worldMatrix, DirectX::XMMatrixIdentity());
-	m_renderItems.push_back(cottage);
-
-	m_grid.mesh = AssetManager::GetMeshByName("grid");
-	m_grid.material = AssetManager::GetMaterialByName("default_mat");
-	m_grid.pipelineMode = PipelineMode::Grid;
-	DirectX::XMStoreFloat4x4(&m_grid.worldMatrix, DirectX::XMMatrixIdentity());
+	TemporaryLoad();
 
 	m_renderContext.camera = &m_camera;
 	m_renderContext.gbuffer = &m_gbuffer;
@@ -369,5 +344,37 @@ void Renderer::WaitForGPU() {
 		m_fence->SetEventOnCompletion(fenceValue, m_fenceEvent);
 		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
+}
+
+void Renderer::TemporaryLoad() {
+	std::filesystem::path assetsDir = FLUXION_ASSET_DIR;
+	AssetManager::LoadMeshes(assetsDir / "models");
+	AssetManager::LoadTextures(assetsDir / "textures");
+	AssetManager::CreateGridMesh("grid");
+
+	if (Texture* albedo = AssetManager::GetTextureByName("Cottage_Clean_Base_Color")) {
+		albedo->SetSRGB(true, &m_srvHeap);
+	}
+
+	AssetManager::CreateMaterial("default_mat");
+	AssetManager::CreateMaterial("cottage_mat");
+	Material* cottageMat = AssetManager::GetMaterialByName("cottage_mat");
+	cottageMat->textureIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Base_Color");
+	cottageMat->normalIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Normal");
+	cottageMat->roughnessIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Roughness");
+	cottageMat->metallicIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_Metallic");
+	cottageMat->aoIndex = AssetManager::GetTextureIndexByTextureName("Cottage_Clean_AO");
+
+	RenderItem cottage;
+	cottage.mesh = AssetManager::GetMeshByName("cottage");
+	cottage.material = cottageMat;
+	cottage.pipelineMode = PipelineMode::Geometry;
+	DirectX::XMStoreFloat4x4(&cottage.worldMatrix, DirectX::XMMatrixIdentity());
+	m_renderItems.push_back(cottage);
+
+	m_grid.mesh = AssetManager::GetMeshByName("grid");
+	m_grid.material = AssetManager::GetMaterialByName("default_mat");
+	m_grid.pipelineMode = PipelineMode::Grid;
+	DirectX::XMStoreFloat4x4(&m_grid.worldMatrix, DirectX::XMMatrixIdentity());
 }
 }

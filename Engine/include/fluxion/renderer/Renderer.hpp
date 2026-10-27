@@ -46,6 +46,7 @@ private:
 	bool CreateBuffers();
 	bool LoadShaders();
 	void WaitForGPU();
+	void TemporaryLoad();
 private:
 	static constexpr uint32 kFrameCount = 2;
 	uint32 m_width = 0;
